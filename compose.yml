@@ -1,0 +1,85 @@
+services:
+  dapa_be:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: dapa_backend
+    depends_on:
+        - dapa_pg
+        - dapa_redis
+    env_file:
+      - .env
+    ports:
+      - "${SERVER_PORT}:5050"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@dapa_pg:5432/${POSTGRES_DB}
+      - REDIS_URL=redis://dapa_redis:6379
+    networks:
+      - dapa-network
+    volumes:
+      - ./logs:/app/logs  # bind mount for logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2" 
+
+
+  dapa_streamlit_fe:
+      build:
+        context: .
+        dockerfile: Dockerfile.client
+      container_name: dapa_streamlit
+      env_file:
+        - .env
+      ports:
+        - "${CLIENT_PORT}:5051"
+      depends_on:
+        - dapa_be
+      environment:
+        - BACKEND_URL=http://dapa_backend:5050
+      networks:
+        - dapa-network
+      develop:
+        watch:
+          - path: src/client/
+            action: sync+restart
+            target: /app/client/
+          - path: src/schema/
+            action: sync+restart
+            target: /app/schema/
+          - path: src/interface.py
+            action: sync+restart
+            target: /app/interface.py
+  
+  dapa_pg:
+    image: postgres:latest
+    container_name: dapa_pg
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - dapa-network
+    volumes:
+      - pg_db_1:/var/lib/postgresql/data  # named volume for pgdb
+
+  dapa_redis:
+    image: redis:latest
+    container_name: dapa_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - dapa-network
+
+volumes:
+  pg_db_1:
+
+networks:
+  dapa-network:
+
+# To build and run the app:
+# docker compose up --build -d
+# or for dev easy
+# docker compose watch

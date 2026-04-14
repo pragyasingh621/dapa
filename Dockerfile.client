@@ -1,0 +1,15 @@
+FROM python:3.12.3-slim
+
+WORKDIR /app
+
+COPY requirements_client.txt ./
+RUN pip install --no-cache-dir -r requirements_client.txt
+
+COPY . .
+
+EXPOSE 5051
+
+HEALTHCHECK CMD curl --fail http://localhost:5051/_stcore/health
+
+# Start the frontend application
+ENTRYPOINT ["streamlit", "run", "src/interface.py", "--server.port=5051", "--server.address=0.0.0.0"]
